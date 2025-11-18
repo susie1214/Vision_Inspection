@@ -1,0 +1,12 @@
+# data.yaml
+path: dataset
+train: images/train
+val: images/test
+
+names:
+  0: hole
+  1: scratch
+  2: burr
+  3: text_error
+  4: cnt_error
+  5: locate_error

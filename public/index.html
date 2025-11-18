@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Labeling Tool</title>
+<style>
+  :root{
+    --bg:#0b1220;--panel:#121a2b;--muted:#8aa0c2;--accent:#4f8cff;--line:#22304d
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:#e8efff;font-family:Inter,system-ui,Arial
+  }
+  header{
+    display:flex;gap:8px;align-items:center;padding:10px 14px;
+    border-bottom:1px solid var(--line);background:#0e1729
+  }
+  .btn{
+    padding:8px 10px;border:1px solid var(--line);background:#0e1729;
+    color:#e8efff;border-radius:8px;cursor:pointer;font-size:13px
+  }
+  .btn:hover{border-color:var(--accent)}
+  .primary{background:var(--accent);border-color:transparent}
+  input[type=text]{
+    background:#0e1729;border:1px solid var(--line);color:#e8efff;
+    border-radius:8px;padding:8px 10px;width:200px
+  }
+  .seg{
+    display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden
+  }
+  .seg button{
+    background:#0e1729;border:0;padding:8px 10px;color:#cfe0ff;cursor:pointer;
+    font-size:13px
+  }
+  .seg button.active{background:#17315f}
+  .layout{
+    display:grid;grid-template-columns:300px 1fr 330px;
+    height:calc(100vh - 56px)
+  }
+  aside{
+    background:var(--panel);border-right:1px solid var(--line);overflow:auto
+  }
+  .right{border-left:1px solid var(--line)}
+  .section{padding:12px}
+  .list-item{
+    padding:8px;border-radius:8px;margin-bottom:6px;background:#0f1930;
+    display:flex;justify-content:space-between;align-items:center;
+    border:1px solid transparent;cursor:pointer;font-size:13px
+  }
+  .list-item.active{border-color:var(--accent);background:#0c1628}
+  .dot{
+    width:10px;height:10px;border-radius:50%;margin-right:8px;display:inline-block;
+    background:#64748b
+  }
+  .dot.ok{background:#22c55e}
+  .del{
+    background:#222;border:none;color:#f77;padding:2px 6px;border-radius:4px;
+    cursor:pointer;font-size:12px
+  }
+  .row{
+    display:flex;justify-content:space-between;align-items:center;padding:8px;
+    border:1px solid var(--line);border-radius:8px;background:#0e1729;
+    margin-bottom:6px;font-size:13px
+  }
+  .swatch{
+    display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px
+  }
+  .small{font-size:12px;color:var(--muted)}
+  main{position:relative;background:#0a1324;overflow:auto}
+  #stageWrap{
+    position:relative;margin:12px;display:inline-block;border:1px solid var(--line);
+    background:#000
+  }
+  #base{display:block;max-width:none}
+  #stage{position:absolute;left:0;top:0}
+  #coords{
+    position:fixed;right:16px;bottom:16px;background:#0f1930;
+    border:1px solid var(--line);padding:6px 10px;border-radius:8px;
+    font-size:12px
+  }
+  .no-more-task {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+  }
+  .no-more-task.hidden {display: none;}
+  .no-more-task .message {text-align: center;font-size: 20px;}
+</style>
+</head>
+<body>
+<header>
+  <strong>Labeling Tool</strong>
+
+  <!-- 프로젝트명 -->
+  <input id="projectName" type="text" placeholder="project name"
+         value="default" title="프로젝트명"/>
+
+  <!-- 모드 전환 -->
+  <div class="seg">
+    <button id="modeRect"      class="mode-btn active" data-mode="rect">Rect (R)</button>
+    <button id="modePoly"      class="mode-btn" data-mode="poly">Polygon (P)</button>
+    <button id="modePolyline"  class="mode-btn" data-mode="polyline">Polyline</button>
+    <button id="modePoint"     class="mode-btn" data-mode="point">Point</button>
+  </div>
+
+  <!-- 뷰 모드 -->
+  <div class="seg" title="이미지 크기 모드">
+    <button id="viewFit"   class="active">맞춤</button>
+    <button id="viewFillW">가로맞춤</button>
+    <button id="viewOne">1:1</button>
+  </div>
+
+  <button id="zoomOut" class="btn">-</button>
+  <button id="zoomIn"  class="btn">+</button>
+
+  <!-- 업로드 -->
+  <label class="btn" for="multiUp">이미지 다중 업로드</label>
+  <input id="multiUp" type="file" accept="image/*" multiple style="display:none"/>
+  <label class="btn" for="folderUp">폴더 업로드</label>
+  <input id="folderUp" type="file" webkitdirectory directory multiple style="display:none"/>
+
+  <!-- 저장·내보내기 -->
+  <button id="btnSave" class="btn primary">어노테이션 저장 (S)</button>
+  <button id="btnExportZip" class="btn">프로젝트 내보내기(ZIP)</button>
+
+  <!-- UNDO / REDO -->
+  <button id="undoBtn" class="btn">UNDO</button>
+  <button id="redoBtn" class="btn">REDO</button>
+
+  <span id="hint" style="margin-left:8px;color:#9ecaff;font-size:12px"></span>
+  <a href="/docs" style="margin-left:auto;color:#9ecaff;font-size:12px">API docs</a>
+</header>
+
+<div class="layout">
+  <!-- 왼쪽: 이미지 리스트 -->
+  <aside>
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+        <div class="small">Images</div>
+        <div style="display:flex;gap:4px">
+          <button id="btnReload" class="btn" style="padding:4px 8px">새로고침</button>
+          <button id="btnNextImage" class="btn" style="padding:4px 8px">다음 이미지</button>
+        </div>
+      </div>
+      <div id="imgList"></div>
+    </div>
+  </aside>
+
+  <!-- 중앙: 이미지 + 캔버스 -->
+  <main>
+    <div id="stageWrap">
+      <img id="base" src="/assets/base.png" alt="base"/>
+      <canvas id="stage"></canvas>
+    </div>
+  </main>
+
+  <!-- 오른쪽: 라벨 세트 / 오브젝트 리스트 -->
+  <aside class="right">
+    <div class="section">
+      <div class="small">Active label</div>
+      <div id="labelSet"
+           style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"></div>
+      <div class="small" style="margin-top:6px">
+        단축키: 1~6, R/P, S, 폴리곤/폴리라인: Backspace/Enter/Esc
+      </div>
+    </div>
+    <div class="section">
+      <div class="small">Objects</div>
+      <div id="objList"></div>
+    </div>
+  </aside>
+</div>
+
+<div id="coords">x:-, y:-, scale:1</div>
+
+<!-- No More Task 화면 -->
+<div id="noMoreTask" class="no-more-task hidden">
+  <div class="message">
+    <h2>No More Task</h2>
+    <p>할당된 테스크를 모두 완료했습니다.</p>
+    <p style="font-size:13px;color:#ddd">화면을 클릭하면 닫힙니다.</p>
+  </div>
+</div>
+
+<script>
+/* =========================
+   상수 / DOM 참조
+   ========================= */
+const API = location.origin;
+
+const LABELS = [
+  {key:'1', name:'hole',        color:'#6dd3fb'},
+  {key:'2', name:'scratch',     color:'#f9a8d4'},
+  {key:'3', name:'burr',        color:'#f6d365'},
+  {key:'4', name:'text_error',  color:'#a3e635'},
+  {key:'5', name:'cnt_error',   color:'#fca5a5'},
+  {key:'6', name:'locate_error',color:'#c4b5fd'},
+];
+
+const imgListEl    = document.getElementById('imgList');
+const baseEl       = document.getElementById('base');
+const stageEl      = document.getElementById('stage');
+const ctx          = stageEl.getContext('2d');
+const objListEl    = document.getElementById('objList');
+const labelSetEl   = document.getElementById('labelSet');
+const coordsEl     = document.getElementById('coords');
+const hintEl       = document.getElementById('hint');
+const projectInput = document.getElementById('projectName');
+const noMoreTaskEl = document.getElementById('noMoreTask');
+
+/* =========================
+   상태 변수
+   ========================= */
+let mode        = 'rect';   // 'rect' | 'poly' | 'polyline' | 'point'
+let current     = null;     // 현재 이미지 메타
+let anns        = [];       // 현재 이미지의 어노테이션
+let scale       = 1;
+let viewMode    = 'fit';    // 'fit' | 'fillW' | 'one'
+let manualScale = 1;        // viewMode === 'one' 에서 사용
+let drawing     = null;     // rect:{x,y,x2,y2}, poly류:{pts:[]}
+
+/* UNDO / REDO 히스토리 */
+let history     = [];
+let redoStack   = [];
+
+/* 이미지 리스트 / 인덱스 */
+let images      = [];
+let currentIndex= -1;
+
+/* =========================
+   공용 함수
+   ========================= */
+function msg(s){
+  hintEl.textContent = s;
+  setTimeout(()=>{ if(hintEl.textContent===s) hintEl.textContent=''; }, 2000);
+}
+function colorOf(label){
+  return (LABELS.find(l=>l.name===label)?.color) || '#cfe0ff';
+}
+
+/* 모드 전환 */
+function setMode(m){
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.mode === m);
+  });
+}
+document.getElementById('modeRect').onclick     = ()=>setMode('rect');
+document.getElementById('modePoly').onclick     = ()=>setMode('poly');
+document.getElementById('modePolyline').onclick = ()=>setMode('polyline');
+document.getElementById('modePoint').onclick    = ()=>setMode('point');
+
+/* 뷰 모드 전환 */
+function setView(m){
+  viewMode = m;
+  document.getElementById('viewFit').classList.toggle('active', m==='fit');
+  document.getElementById('viewFillW').classList.toggle('active', m==='fillW');
+  document.getElementById('viewOne').classList.toggle('active', m==='one');
+  fitToViewport();
+  render();
+}
+document.getElementById('viewFit').onclick   = ()=>setView('fit');
+document.getElementById('viewFillW').onclick = ()=>setView('fillW');
+document.getElementById('viewOne').onclick   = ()=>setView('one');
+
+document.getElementById('zoomIn').onclick = ()=>{
+  if(viewMode==='one'){
+    manualScale = Math.min(5, manualScale + 0.1);
+    fitToViewport(); render();
+  }
+};
+document.getElementById('zoomOut').onclick = ()=>{
+  if(viewMode==='one'){
+    manualScale = Math.max(0.2, manualScale - 0.1);
+    fitToViewport(); render();
+  }
+};
+
+/* 라벨 버튼 생성 */
+LABELS.forEach(L=>{
+  const b = document.createElement('button');
+  b.className = 'btn';
+  b.dataset.value = L.name;
+  b.innerHTML = `<span class="swatch" style="background:${L.color}"></span>${L.key}. ${L.name}`;
+  b.onclick = ()=>setActiveLabel(L.name);
+  labelSetEl.appendChild(b);
+});
+
+let activeLabel = LABELS[0].name;
+function setActiveLabel(n){
+  activeLabel = n;
+  [...labelSetEl.children].forEach(b=>{
+    b.classList.toggle('primary', b.dataset.value === n);
+  });
+}
+setActiveLabel(activeLabel);
+
+/* =========================
+   UNDO / REDO
+   ========================= */
+function snapshot(){
+  return JSON.parse(JSON.stringify(anns));
+}
+function pushHistory(){
+  history.push(snapshot());
+  if(history.length > 50) history.shift();
+  redoStack = [];
+}
+function undo(){
+  if(!history.length) return;
+  redoStack.push(snapshot());
+  anns = history.pop();
+  render();
+}
+function redo(){
+  if(!redoStack.length) return;
+  history.push(snapshot());
+  anns = redoStack.pop();
+  render();
+}
+document.getElementById('undoBtn').onclick = undo;
+document.getElementById('redoBtn').onclick = redo;
+
+/* =========================
+   이미지 리스트 / 선택
+   ========================= */
+async function listImages(){
+  const project = projectInput.value || 'default';
+  const r = await fetch(`${API}/api/images?project=${encodeURIComponent(project)}`);
+  const arr = await r.json();
+
+  const withAnn = await Promise.all(arr.map(async it=>{
+    try{
+      const rr = await fetch(`${API}/api/annotations?image_id=${it.id}`);
+      const a  = await rr.json();
+      return {...it, _has: a && a.length > 0};
+    }catch{
+      return {...it, _has:false};
+    }
+  }));
+
+  images = withAnn;
+  if(images.length > 0) noMoreTaskEl.classList.add('hidden');
+
+  imgListEl.innerHTML = '';
+  withAnn.forEach(it=>{
+  const d = document.createElement('div');
+  d.className = 'list-item';
+  d.innerHTML =
+    `<div style="display:flex;align-items:center">
+       <span class="dot ${it._has?'ok':''}"></span>${it.filename}
+     </div>
+     <button class="del">X</button>`;
+
+  // 리스트 클릭 → 이미지 선택
+  d.onclick = e=>{
+    if(e.target.classList.contains('del')) return;
+    selectImage(it);
+  };
+
+  // 삭제 버튼 클릭 → 서버에 DELETE 요청
+  d.querySelector('.del').onclick = async (e)=>{
+    e.stopPropagation();
+    if(!confirm(`이미지 "${it.filename}" 을(를) 삭제하시겠습니까?`)) return;
+    try{
+      const r = await fetch(`${API}/api/images/${it.id}`, {method:'DELETE'});
+      if(!r.ok){
+        const t = await r.text();
+        alert('삭제 실패: ' + t);
+        return;
+      }
+      msg('삭제 완료');
+
+      // 현재 보고 있던 이미지가 삭제된 경우 화면 초기화
+      if(current && current.id === it.id){
+        current = null;
+        anns = [];
+        history = [];
+        redoStack = [];
+        drawing = null;
+        baseEl.src = '';
+        stageEl.width = 1;
+        stageEl.height = 1;
+        render();
+      }
+
+      await listImages();
+    }catch(err){
+      console.error(err);
+      alert('삭제 오류: ' + err);
+    }
+  };
+
+  if(current && current.id === it.id) d.classList.add('active');
+  imgListEl.appendChild(d);
+});
+
+}
+
+async function selectImage(it){
+  current = it;
+  currentIndex = images.findIndex(im => im.id === it.id);
+
+  [...imgListEl.children].forEach(ch=>{
+    ch.classList.toggle('active', ch.textContent.includes(it.filename));
+  });
+
+  baseEl.src = `${API}${it.url}`;
+  await new Promise(res=> baseEl.onload = res);
+
+  fitToViewport();
+
+  const r = await fetch(`${API}/api/annotations?image_id=${it.id}`);
+  anns = await r.json();
+  history   = [];
+  redoStack = [];
+  drawing   = null;
+  render();
+}
+
+function gotoNextImage(){
+  if(!images.length) return;
+  if(currentIndex < 0){
+    selectImage(images[0]);
+    return;
+  }
+  if(currentIndex + 1 >= images.length){
+    noMoreTaskEl.classList.remove('hidden');
+    return;
+  }
+  noMoreTaskEl.classList.add('hidden');
+  selectImage(images[currentIndex + 1]);
+}
+document.getElementById('btnNextImage').onclick = gotoNextImage;
+noMoreTaskEl.onclick = ()=> noMoreTaskEl.classList.add('hidden');
+
+/* =========================
+   캔버스 렌더링
+   ========================= */
+function fitToViewport(){
+  const w = baseEl.naturalWidth || 1;
+  const h = baseEl.naturalHeight || 1;
+
+  const availW = Math.max(200, window.innerWidth  - 300 - 330 - 60);
+  const availH = Math.max(200, window.innerHeight - 56  - 40);
+
+  if(viewMode === 'fit'){
+    scale = Math.min(availW / w, availH / h);
+  }else if(viewMode === 'fillW'){
+    scale = availW / w;
+  }else{
+    scale = manualScale;
+  }
+
+  stageEl.width  = w * scale;
+  stageEl.height = h * scale;
+  baseEl.style.width  = stageEl.width  + 'px';
+  baseEl.style.height = stageEl.height + 'px';
+
+  coordsEl.textContent = `x:-, y:-, scale:${scale.toFixed(2)}`;
+}
+
+function render(){
+  ctx.clearRect(0,0,stageEl.width, stageEl.height);
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+
+  // 어노테이션 그리기
+  anns.forEach((a,i)=>{
+    const c = colorOf(a.label);
+    ctx.strokeStyle = c;
+    ctx.fillStyle   = c;
+
+    if(a.atype === 'bbox'){          // RECT
+      const [x,y,w,h] = a.bbox.map(v=>v*scale);
+      ctx.globalAlpha = 0.9;
+      ctx.strokeRect(x,y,w,h);
+      ctx.globalAlpha = 0.15;
+      ctx.fillRect(x,y,w,h);
+      ctx.globalAlpha = 1.0;
+      drawTag(`${i+1}:${a.label}`, x, y, c);
+    }else if((a.atype === 'polygon' || a.atype === 'polyline') && a.points?.length >= 2){
+      const pts = a.points.map(([px,py])=>[px*scale, py*scale]);
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for(let k=1;k<pts.length;k++) ctx.lineTo(pts[k][0], pts[k][1]);
+      if(a.atype === 'polygon'){
+        ctx.closePath();
+        ctx.globalAlpha = 0.9;
+        ctx.stroke();
+        ctx.globalAlpha = 0.15;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+      }else{
+        ctx.globalAlpha = 0.9;
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+      }
+      drawTag(`${i+1}:${a.label}`, pts[0][0], pts[0][1], c);
+    }else if(a.atype === 'point' && a.points?.length){
+      const [px,py] = a.points[0];
+      const x = px * scale;
+      const y = py * scale;
+      ctx.beginPath();
+      ctx.arc(x,y,4,0,Math.PI*2);
+      ctx.fill();
+      drawTag(`${i+1}:${a.label}`, x+6, y-6, c);
+    }
+  });
+
+  // 현재 그리고 있는 도형(preview)
+  if(drawing){
+    const c = colorOf(activeLabel);
+    ctx.strokeStyle = c;
+    ctx.fillStyle   = c;
+
+    if(mode === 'rect'){
+      const x = Math.min(drawing.x, drawing.x2) * scale;
+      const y = Math.min(drawing.y, drawing.y2) * scale;
+      const w = Math.abs(drawing.x2 - drawing.x) * scale;
+      const h = Math.abs(drawing.y2 - drawing.y) * scale;
+      ctx.setLineDash([6,4]);
+      ctx.strokeRect(x,y,w,h);
+      ctx.setLineDash([]);
+    }else if(mode === 'poly' || mode === 'polyline'){
+      const pts = drawing.pts.map(([px,py])=>[px*scale, py*scale]);
+      if(pts.length){
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for(let k=1;k<pts.length;k++) ctx.lineTo(pts[k][0], pts[k][1]);
+        ctx.stroke();
+        pts.forEach(([px,py])=>{
+          ctx.beginPath();
+          ctx.arc(px,py,3,0,Math.PI*2);
+          ctx.fill();
+        });
+      }
+    }
+  }
+
+  // 오른쪽 리스트
+  objListEl.innerHTML = '';
+  anns.forEach((a,i)=>{
+    const row = document.createElement('div');
+    row.className = 'row';
+    const typeLabel =
+      a.atype === 'bbox'     ? 'rect' :
+      a.atype === 'polygon'  ? 'poly' :
+      a.atype === 'polyline' ? 'polyline' : 'point';
+
+    row.innerHTML =
+      `<div>
+         <span class="swatch" style="background:${colorOf(a.label)}"></span>
+         [${i+1}] ${typeLabel}
+       </div>
+       <div>
+         <select data-i="${i}">
+           ${LABELS.map(L=>`<option value="${L.name}" ${L.name===a.label?'selected':''}>${L.name}</option>`).join('')}
+         </select>
+         <button class="del">삭제</button>
+       </div>`;
+
+    row.querySelector('select').onchange = e=>{
+      pushHistory();
+      a.label = e.target.value;
+      render();
+    };
+    row.querySelector('.del').onclick = ()=>{
+      pushHistory();
+      anns.splice(i,1);
+      render();
+    };
+    objListEl.appendChild(row);
+  });
+}
+
+function drawTag(text,x,y,color){
+  ctx.font = '12px system-ui';
+  const tw = Math.max(60, ctx.measureText(text).width + 10);
+  ctx.fillStyle = 'rgba(15,25,48,.85)';
+  ctx.fillRect(x, y-16, tw, 16);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(text, x+4, y-4);
+}
+
+function imgPos(evt){
+  const r = stageEl.getBoundingClientRect();
+  return {
+    x: (evt.clientX - r.left) / scale,
+    y: (evt.clientY - r.top)  / scale
+  };
+}
+
+/* =========================
+   마우스 이벤트
+   ========================= */
+stageEl.onmousedown = e=>{
+  if(!current) return;
+  const p = imgPos(e);
+
+  if(mode === 'rect'){
+    drawing = {x:p.x, y:p.y, x2:p.x, y2:p.y};
+  }else if(mode === 'poly' || mode === 'polyline'){
+    if(!drawing) drawing = {pts:[]};
+    drawing.pts.push([p.x,p.y]);
+  }else if(mode === 'point'){
+    pushHistory();
+    anns.push({
+      id:null,
+      image_id:current.id,
+      atype:'point',
+      label:activeLabel,
+      points:[[p.x,p.y]]
+    });
+    render();
+  }
+};
+
+stageEl.onmousemove = e=>{
+  const p = imgPos(e);
+  coordsEl.textContent =
+    `x:${p.x.toFixed(1)}, y:${p.y.toFixed(1)}, scale:${scale.toFixed(2)}`;
+
+  if(!drawing) return;
+
+  if(mode === 'rect'){
+    drawing.x2 = p.x;
+    drawing.y2 = p.y;
+  }
+  render();
+};
+
+stageEl.onmouseup = ()=>{
+  if(mode === 'rect' && drawing){
+    const x = Math.min(drawing.x, drawing.x2);
+    const y = Math.min(drawing.y, drawing.y2);
+    const w = Math.abs(drawing.x2 - drawing.x);
+    const h = Math.abs(drawing.y2 - drawing.y);
+    if(w > 3 && h > 3){
+      pushHistory();
+      anns.push({
+        id:null,
+        image_id:current.id,
+        atype:'bbox',
+        label:activeLabel,
+        bbox:[x,y,w,h]
+      });
+    }
+    drawing = null;
+    render();
+  }
+};
+
+stageEl.ondblclick = ()=>{
+  finalizeShape();
+};
+
+function finalizeShape(){
+  if((mode!=='poly' && mode!=='polyline') || !drawing) return;
+  const minPts = (mode === 'poly') ? 3 : 2;
+  if(drawing.pts.length < minPts) return;
+
+  pushHistory();
+  const atype = (mode === 'poly') ? 'polygon' : 'polyline';
+  anns.push({
+    id:null,
+    image_id:current.id,
+    atype,
+    label:activeLabel,
+    points:[...drawing.pts]
+  });
+  drawing = null;
+  render();
+}
+
+/* =========================
+   키보드 단축키
+   ========================= */
+window.addEventListener('keydown',(e)=>{
+  if(e.key==='r' || e.key==='R') setMode('rect');
+  if(e.key==='p' || e.key==='P') setMode('poly');
+  if(e.key==='l' || e.key==='L') setMode('polyline');
+  if(e.key==='o' || e.key==='O') setMode('point');
+  if(e.key==='s' || e.key==='S'){
+    e.preventDefault();
+    save();
+  }
+  if(e.key==='n' || e.key==='N'){
+    gotoNextImage();
+  }
+
+  const hit = LABELS.find(L=>L.key===e.key);
+  if(hit) setActiveLabel(hit.name);
+
+  if((mode==='poly' || mode==='polyline') && drawing){
+    if(e.key==='Enter'){
+      finalizeShape();
+    }
+    if(e.key==='Backspace'){
+      e.preventDefault();
+      drawing.pts.pop();
+      if(!drawing.pts.length) drawing = null;
+      render();
+    }
+    if(e.key==='Escape'){
+      drawing = null;
+      render();
+    }
+  }
+});
+
+/* =========================
+   저장 / 업로드 / 내보내기
+   ========================= */
+async function save(){
+  if(!current) return alert('이미지를 먼저 선택하세요.');
+  const r = await fetch(`${API}/api/annotations`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(anns)
+  });
+  if(!r.ok){
+    const t = await r.text();
+    alert('저장 실패: '+t);
+    return;
+  }
+  anns = await r.json();
+  msg('저장 완료');
+  render();
+}
+
+async function uploadFiles(fileList){
+  if(!fileList || !fileList.length){
+    msg('선택된 파일 없음');
+    return;
+  }
+  const project = projectInput.value || 'default';
+  try{
+    if(fileList.length === 1){
+      const fd = new FormData();
+      fd.append('file', fileList[0]);
+      fd.append('project', project);
+      const r = await fetch(`${API}/api/images`,{method:'POST', body:fd});
+      if(!r.ok){
+        const t = await r.text();
+        throw new Error(`/api/images ${r.status}: ${t}`);
+      }
+      msg('1건 업로드 완료');
+    }else{
+      const fd = new FormData();
+      [...fileList].forEach(f=>fd.append('files', f));
+      fd.append('project', project);
+      const r = await fetch(`${API}/api/images/batch`,{method:'POST', body:fd});
+      if(!r.ok){
+        const t = await r.text();
+        throw new Error(`/api/images/batch ${r.status}: ${t}`);
+      }
+      const j = await r.json();
+      msg(`${j.count}건 업로드 완료`);
+    }
+    await listImages();
+  }catch(err){
+    console.error(err);
+    alert('업로드 실패: '+err);
+  }
+}
+
+async function exportProjectZip(){
+  const project = projectInput.value || 'default';
+  const res = await fetch(
+    `${API}/api/export?project=${encodeURIComponent(project)}`
+  );
+  if(!res.ok){
+    const t = await res.text();
+    alert('내보내기 실패: '+t);
+    return;
+  }
+  const blob = await res.blob();
+  const disp = res.headers.get("Content-Disposition") || "";
+  const m = /filename="?([^"]+)"?/i.exec(disp);
+  const fname = m ? m[1] : `export_${Date.now()}.zip`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* 이벤트 연결 */
+document.getElementById('multiUp').onchange  = e=>{
+  uploadFiles(e.target.files);
+  e.target.value = '';
+};
+document.getElementById('folderUp').onchange = e=>{
+  uploadFiles(e.target.files);
+  e.target.value = '';
+};
+document.getElementById('btnSave').onclick      = save;
+document.getElementById('btnExportZip').onclick = exportProjectZip;
+document.getElementById('btnReload').onclick    = listImages;
+
+window.onresize = ()=>{
+  if(baseEl.naturalWidth){
+    fitToViewport();
+    render();
+  }
+};
+
+/* 초기 로딩 */
+listImages();
+</script>
+</body>
+</html>
