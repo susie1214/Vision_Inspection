@@ -1,15 +1,16 @@
-**🛠️ Industrial Vision Inspection – Brake Disc Defect Detection**
-Automated Labeling Tool + YOLO11-Seg Fine-Tuning for Burr / Scratch / Hole Detection
+# 🛠️ Industrial Vision Inspection – Brake Disc Defect Detection
+---
+**Automated Labeling Tool + YOLO11-Seg Fine-Tuning for Burr / Scratch / Hole Detection**
+
 **📌 프로젝트 개요**
 
-본 프로젝트는 **산업현장(Brake Disc 생산 라인)**에서 발생하는 주요 결함인
-Burr, Scratch, Hole을 자동 검출하기 위해 제작된 라벨링 툴 + 학습/추론 파이프라인 통합 Vision 시스템입니다.
-
+본 프로젝트는 산업현장(Brake Disc 생산 라인)에서 발생하는 주요 결함인
+Burr, Scratch, Hole을 자동 검출하기 위해 제작된 라벨링 툴 + 학습/추론 파이프라인 통합 Vision 시스템입니다.  
 현장 작업자가 직접 검수하던 공정을 세그멘테이션 기반 자동화하여
 검출 정확도 향상, 작업 시간 절감, 라인 품질 일관성 확보를 목표로 합니다.
 
 ---
-**🚀 주요 기능 요약**
+**🚀 주요 기능 요약**  
 ✔ 1. 커스텀 라벨링 웹툴
 
 Rectangle / Polygon / Point 3가지 어노테이션 지원
@@ -49,46 +50,45 @@ VISION_PROJECT/
 ├── labeling_tool/             # Web annotation tool
 │   ├── public/
 │   ├── src/
-│   └── export/                # annotation JSON + mask export
+|   |── annotations/            
+│   └── storage/                # annotation JSON + mask export
 │
 ├── dataset/
-│   ├── raw/                   # original images
-│   ├── coco_json/             # COCO format
-│   ├── yolo11_seg/            # converted YOLO format
-│   ├── train/
-│   ├── valid/
-│   └── test/
+│   ├── images/                   # original images
+│   ├── labels/           
 │
 ├── training/
 │   ├── train.py               # YOLO11-Seg fine-tuning script
-│   └── config.yaml            # class & data config
+│   └── data.yaml            # class & data config
 │
-├── inference/
-│   ├── detect.py              # runtime defect detection
-│   ├── camera_gige.py         # Hikrobot / Basler SDK
-│   └── utils/
+├── coco_to_yolo.py
+├── convert_json_to_yolo_seg.py
+├── HikrobotGigE.py
 │
 └── README.md
 ```
 ---
-**🧩 라벨링 툴 기능 상세**
-● Annotation 타입 지원
+**🧩 라벨링 툴 기능 상세**  
+```
+● Annotation 타입 지원  
 Type	용도
 Rectangle	단순 스크래치 등 직사형 결함
 Polygon	Burr, Hole 등 불규칙 패턴
 Point	중심점 필요 시
-● 클래스 색상
-
+● 클래스 색상  
 Burr → Red
 Scratch → Blue
 Hole → Green
-● Export 형식
+● Export 형식  
 annotations.json (COCO format)
 mask_xxxx.png (세그멘테이션 mask)
 YOLO11-Seg txt 자동 변환
+```
+<img width="1264" height="728" alt="image" src="https://github.com/user-attachments/assets/f579e5c4-cfdf-4424-a2dc-08c7b0d8c700" />
 
 ---
-**🧠 YOLO11-Seg 학습 설정**
+**🧠 YOLO11-Seg 학습 설정**  
+```
 # config.yaml
 path: ./dataset/yolo11_seg
 train: train
@@ -99,9 +99,9 @@ names:
   0: burr
   1: scratch
   2: hole
-
+```
 ---
-**🎯 추론 파이프라인 (산업현장용)**
+**🎯 추론 파이프라인 (산업현장용)**  
 
 GigE 카메라 프레임 수신
 전처리(노이즈 제거, 샤프닝, 밝기 표준화)
@@ -110,7 +110,8 @@ Mask → Defect Region → Class별 색상 표시
 결함 로그 저장 / 생산 라인 신호 전송(옵션)
 
 ---
-**🖥️ 실시간 추론 예시 코드**
+**🖥️ 실시간 추론 예시 코드**  
+```
 from ultralytics import YOLO
 import cv2
 model = YOLO("best.pt")
@@ -123,6 +124,7 @@ while True:
     
     if cv2.waitKey(1) == 27:
         break
+```
         
 ---
 **⚙️ COCO → YOLO11-Seg 변환 코드 포함**
