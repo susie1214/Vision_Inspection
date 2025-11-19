@@ -85,6 +85,7 @@ mask_xxxx.png (세그멘테이션 mask)
 YOLO11-Seg txt 자동 변환
 ```
 <img width="1264" height="728" alt="image" src="https://github.com/user-attachments/assets/f579e5c4-cfdf-4424-a2dc-08c7b0d8c700" />
+<img width="496" height="643" alt="image" src="https://github.com/user-attachments/assets/a14b65c4-f597-451b-9c65-e1dd660597cd" />
 
 ---
 **🧠 YOLO11-Seg 학습 설정**  
