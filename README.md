@@ -103,6 +103,7 @@ YOLO11-Seg txt 자동 변환
 ```
 <img width="1264" height="728" alt="image" src="https://github.com/user-attachments/assets/f579e5c4-cfdf-4424-a2dc-08c7b0d8c700" />
 <img width="496" height="643" alt="image" src="https://github.com/user-attachments/assets/a14b65c4-f597-451b-9c65-e1dd660597cd" />
+<img width="852" height="616" alt="image" src="https://github.com/user-attachments/assets/edd4ef3f-d008-4b98-b72e-3dcd8831cc3d" />
 
 ---
 **🧠 YOLO11-Seg 학습 설정**  
