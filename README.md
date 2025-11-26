@@ -21,26 +21,37 @@ YOLO11-Seg 학습에 맞춘 Mask 생성 + 라벨 변환 자동 Export
 
 ✔ 2. YOLO11-Seg 기반 결함 검출
 
-Industrial 환경 조명 반사·잡음 대응
-Segmentation 기반으로 작은 결함까지 정밀 검출
-실시간 추론(FPS 최적화)
-색상 마스크 기반 후처리(Optional)
+- 라벨링 웹툴 (Rectangle / Polygon / Point 지원)  
 
-✔ 3. 자동 데이터 파이프라인
+  - Burr / Scratch / Hole 클래스 색상 구분
 
-COCO → YOLO11-Seg 변환 코드 포함
-Train/Valid/Test 자동 Split
-Class imbalance 대응(샘플 보정 옵션 포함)
+  - COCO 형식 JSON 자동 저장 및 Mask 이미지 자동 생성
 
-✔ 4. 현장 적용을 위한 구조
+  - YOLO11-Seg 형식으로 자동 변환 Export  
 
-✔ GigE / USB 산업 카메라 입력
+ -YOLO11-Seg 기반 결함 검출
 
-✔ 조명 편차 보정(Image Enhance)
+- 산업용 조명 · 반사 · 노이즈 환경 대응
 
-✔ 결함 발견 시 알림/로그 저장
+  - 세그멘테이션으로 미세 결함까지 검출
+  
+  - 실시간 인퍼런스 구조 (FPS 최적화)
 
-✔ PLC 연동 가능(Option)
+- 자동화 데이터 파이프라인  
+  
+  - COCO → YOLO11-Seg 라벨 변환 스크립트 포함
+
+   -자동 Train / Validation / Test 분할 (split_100.py)
+
+   -클래스 불균형 대응(오버샘플링 / 가중치 손실) 
+
+- 현장 적용 구조
+
+  - GigE/USB 산업 카메라 입력 지원
+
+   -조명 편차 보정 기능(이미지 Enhance)
+
+   -결함 발견 시 로그 저장 및 PLC 연동 가능 (옵션)
 
 ---
 **📂 프로젝트 구조**
@@ -65,6 +76,12 @@ VISION_PROJECT/
 ├── convert_json_to_yolo_seg.py
 ├── HikrobotGigE.py
 │
+├── scripts
+│   ├── capture_and_label.py
+│   ├── clean_orphan_json.py
+|   |── split_train_val.py    
+│   └── train_tolo11_seg.bat
+|
 └── README.md
 ```
 ---
